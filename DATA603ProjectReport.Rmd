@@ -1,0 +1,320 @@
+---
+title: "Predicting Medical Insurance Costs in the United States"
+author: "Phuong Nguyen, Nimra Aamir, Tobi Adelodun, Emma Lait"
+date: "07/12/2021"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter 1: Introduction
+
+Healthcare is a necessity that many are not able to afford. High medical costs with or without insurance is a problem that is quite apparent in the United States. In the United States there is a connection between healthcare, healthcare insurance costs, and poverty (Hoffman & Paradise, 2008, p. 149). In fact, findings of a survey conducted in 2013 across 11 countries by a team of researchers shows that many people in the United States will not seek medical treatment even if they have insurance due to medical costs (Schoen et al, 2013, p. 2205). Unlike Canada, there is not partially free coverage for healthcare in the US, so private sectors are responsible for covering 100% of medical costs. With medical costs comes the aspect of insurance. According to Riedel, approximately two-thirds of Americans under age 65 have health insurance coverage (2009, p. 439). It is important to note that there is a large number of people who do not have insurance coverage for health care costs because they are not eligible for certain programs or are not able to “afford nongroup coverage” (Riedel, 2009, p. 439), further providing an outlook into issues that individuals face regularly when it comes to medical costs and insurance. Insurance is one of the primary means used to cover medical costs but there are various factors that influence insurance costs which must be analyzed.
+
+To further examine this problem, statistical research on the topic of medical expenses that impact healthcare insurance in the United States will be carried out. For this research, each individual is categorized by seven variables: age, sex, body mass index (BMI), how many kids are covered under the health insurance, region in the United States, and their charges billed by health insurance. We are looking to see how these specific variables impact insurance costs and medical charges as a whole. To complete this analysis, the Medical Cost Personal Dataset: Insurance Forecast by using Linear Regression was taken from Kaggle under an open database license. The dataset itself is taken and cleaned from the book Machine Learning with R by Brett Lantz. 
+
+## Chapter 2: Methodology
+	
+Our dataset consists of seven variables which are named: age, sex, BMI, children, smoker, region, and charges. Age, BMI, children, and charges are quantitative variable whilst sex, smoker, and region are qualitative variables. 
+
+Age = how old the primary beneficiary of the insurance policy is (years)
+
+Sex = the gender of the beneficiary and consists of two factors (male or female)
+
+BMI = body mass index of the beneficiary (kg/m^2)
+
+Children = amount of children that is covered by the policy or the amount of dependents that the primary beneficiary has, ranging from 0 to 5 (children)
+
+Smoker = whether the primary beneficiary is a smoker (yes or no)
+
+Region = the area of the United States of America that the beneficiary lives in (southwest, northwest, southeast, northeast)
+
+The response variable is Charges =  cost of health insurance that gets billed to the owner of the health insurance policy (dollars)
+
+To begin the process of building our model, we will first build the full model with all the available variables so that we can have a base model to work with. Throughout this whole process of modelling, we will be using a significance level of 0.05. We will look at the summary of the full model and observe the T-statistic and the P-value of each variable to see which ones are considered significant. By having this base model, we are able to remove and add different variables that would improve the accuracy of the model. Once we remove insignificant variables, we will then compare the original model and our first-order model with an ANOVA test to see whether the variables we removed were worth removing or not by observing the F-statistic and P-value of the ANOVA. After, we will then check the interaction terms by building the interaction model from the first order model. The next step is to see if there are any interaction terms that should be added to the first order model. We will also perform a stepwise model selection which will add the variables one by one, and then remove variables if they are not improving the overall model. Another addition to the model is that we are going to check the higher order models, both squared and cubic, to see if there are any terms that we can add to improve the accuracy of our model. After we have confirmed the most accurate model we will then perform all the necessary assumption tests to ensure it meets the needed assumptions.  We will use ggplot to graph the residuals against the fitted values of the linear model to check the linearity assumption, the bptest function for the equal variance assumption, shapiro.test for the normality assumption, the imcdiag function to test for multicollinearity and also test for outliers using the hatvalues function to ensure that there are no values skewing the dataset. Finally after we perform and confirm all the assumptions, we will perform a Box Cox transformation to see whether we can improve the model further or not. 
+
+## Chapter 3: Main results of the analysis
+```{r pressure, echo=FALSE}
+library(readr)
+insurance <- read_csv("C:\\Users\\emmar\\OneDrive\\Documents\\data science\\DATA 603\\insurance.csv")
+head(insurance)
+summary(insurance)   #information of the dataset
+which((is.na(insurance)))  #no null values in the dataset
+```
+
+```{r}
+fullmodel <- lm(charges~age+factor(sex)+
+                  bmi+children+factor(smoker)+
+                  factor(region), data=insurance)
+summary(fullmodel)
+```
+
+We built an initial first-order model with all of the independent variables and utilized the stepwise regression in order to select the important ones to be included. The maximum model was specified as below:
+
+$Y_{charges} = \beta_0 + \beta_1 X_{Age} + \beta_2 X_{BMI} + \beta_3 X_{Children} + \beta_4 X_{Smoker} + \beta_5 X_{Region} + \beta_6 X_{Sex}$
+
+```{r}
+library(olsrr)
+stepmod=ols_step_both_p(fullmodel, pent=0.1, prem=0.3, details=TRUE)
+summary(stepmod$model)
+```
+
+From the selection, the independent variables that produce the largest absolute t-values were declared. We used the default p-values such as any variables with a p-value lower than 0.1 - the entering threshold will enter the model and higher than p-value = 0.3 will be removed. The output from this procedure suggests the variable Sex to be dropped from the model. Therefore, we decided to include the main effects of both quantitative variables and dummy variables as such: Smoker, Age, BMI, Children, Region in our first-order model.
+
+Individual T-tests:
+
+Hypothesis statement: (the model without Sex variable)
+$H_0: \beta_i = 0$ 
+$H_a: \beta_i \neq 0$ (i = Age, BMI, Children, Smoker, Region)
+
+
+We used the individual T-tests to determine what the best predictors are on the significance level $\alpha = 0.05$. From the output, the p-values of Age, BMI, Children, Smoker were less than $\alpha = 0.05$ which indicate that we should reject the null hypothesis and these variables are significant in the model. The Region variable had one category above our specified $\alpha$ among 4 categories. Therefore, we decided to keep Region as one of the predictors from this step for further comparison with interaction and higher order terms. The model from the individual T-tests is: 
+
+$Y_{Charges} = \beta_0 + \beta_1 X_{Age} + \beta_2 X_{BMI} + \beta_3 X_{Children} + \beta_4 X_{Smoker} + \beta_5 X_{Region}$
+
+
+```{r}
+fullmodel <-lm(charges~age+bmi+children+
+                 factor(smoker)+factor(region), 
+               data=insurance)  #full model without Sex variable
+summary(fullmodel)
+```
+
+Partial F-test: 
+
+Hypothesis statement: (for Region variable)
+$H_0: \beta_{Region} = 0$
+$H_a: \beta_{Region} \neq 0$ 
+
+```{r}
+#F-test for model with or without region
+firstordermodel <- lm(charges~age+bmi+children+factor(smoker), 
+                      data=insurance)  #without Region variable
+summary(firstordermodel)
+firstordermodel1 <- lm(charges~age+bmi+children+factor(smoker)+factor(region), 
+                       data=insurance)   #with Region variable
+summary(firstordermodel1)
+anova(firstordermodel, firstordermodel1)
+```
+
+The partial F-test was used in order to check the significance of the Region variable. The goal of this step is to investigate the contribution of this predictor individually. We defined the full model with all the predictors and the reduced model with the whole set of predictors less the Region one. From the analysis of variance for comparing between these two models, the output shows that $F-value = 2.1166$ with df = 1330 ($p-value = 0.09631 > \alpha = 0.05$), indicating that we should clearly not to reject the null hypothesis. We should definitely drop the Region variable off the model. At this point, the model we have is:
+
+$Y_{Charges} = \beta_0 + \beta_1 X_{Age} + \beta_2 X_{BMI} + \beta_3 X_{Children} + \beta_4 X_{Smoker}$
+
+Interaction terms individual T-tests:
+ 
+Hypothesis statement: 
+$H_0: \beta_i = 0$
+$H_a: \beta_i \neq 0$ 
+(i = Age*BMI, Age*Children, Age*Smoker, BMI*Children, BMI*Smoker, Children*Smoker)
+
+```{r}
+itrmodel <- lm(charges~(age+bmi+children+factor(smoker))^2, data=insurance)
+summary(itrmodel)
+```
+
+From the output of the T-tests for the interaction terms, there is only one term that is significant for the charge of medical insurance which is between BMI and Smoker (p-value < 0.05). The other interaction terms have small t-value and high p-value compared to our significance level. Therefore, we fail to reject the null hypothesis. The model with the interaction term is shown below:
+
+```{r}
+# best interaction term
+bestitrmodel <- lm(charges~age+bmi+factor(smoker)+
+                     bmi*factor(smoker)+children, 
+                   data=insurance)
+summary(bestitrmodel)
+```
+
+$Y_{Charges} = \beta_0 + \beta_1 X_{Age} + \beta_2 X_{BMI} + \beta_3 X_{Children} + \beta_4 X_{Smoker} + \beta_5 X_{BMI}*X_{Smoker}$
+
+
+Higher order model:
+
+Hypothesis statement: 
+$H_0: \beta_i = 0$
+$H_a: \beta_i \neq 0$ 
+( i = Age^2, BMI^2, Children^2)
+( i = Age^2, BMI^2, Age^3, BMI^3)
+( i = Age^2, BMI^2, BMI^3)
+
+
+```{r}
+hm <- lm(charges~age+bmi+factor(smoker)+children + 
+           I(age^2) + I(bmi^2) + 
+           I(children^2), data=insurance)
+hm1 <- lm(charges~age+bmi+factor(smoker)+children + 
+            I(age^2) + I(bmi^2) + I(age^3) +
+            I(bmi^3), data=insurance)
+hm2 <- lm(charges~age+bmi+factor(smoker)+children + 
+            I(age^2) + I(bmi^2) + 
+            I(bmi^3), data=insurance)
+
+```
+
+We want to check for the significance of the higher order terms. Firstly, we included the quadratic terms of three quantitative variables which are Age, BMI and Children. All of the values are significant except the higher order of the Children variable (p-value = 0.0661). Therefore, we removed the higher order of Children and increased the order of Age and BMI to cubic terms. The cubic term of Age was insignificant at p-value = 0.7437. Therefore, we finalized our higher order terms as such: 
+Age^2 (t = 3.838, p-value = 0.00013)
+BMI^2 (t = 2.020, p-value = 0.04361)
+BMI^3 (t = -2.253, p-value = 0.0241)
+The model with higher order terms:
+
+$Y_{Charges} = \beta_0 + \beta_1 X_{Age} + \beta_2 X_{BMI} + \beta_3 X_{Children} + \beta_4 X_{Smoker} + \beta_5 X_{Age^2} + \beta_6 X_{BMI^2} + \beta_7 X_{BMI^3}$
+
+Interaction terms and higher order model:
+
+Hypothesis statement: 
+$H_0: \beta_i = 0$
+$H_a: \beta_i \neq 0$ 
+(i = BMI*factor(Smoker))
+
+```{r}
+highermodel <- lm(charges~age+bmi+factor(smoker)+
+                    children + I(age^2) + I(bmi^2) + 
+                    I(bmi^3) + bmi*factor(smoker), 
+                  data=insurance)
+summary(highermodel)
+anova(hm2, highermodel)
+```
+
+We conducted the ANOVA test to confirm the contribution of the interaction term with the higher order model. The reduced model is the one with the main effects and without the interaction term. Meanwhile, the full model includes the main effects, the interaction term and higher order terms. The result of ANOVA with F = 771.78 and p-value < 0.05 indicates that we should reject the hypothesis. We finalized our model with higher order and interaction terms as shown below:
+
+$Y_{Charges} = \beta_0 + \beta_1 X_{Age} + \beta_2 X_{BMI} + \beta_3 X_{Children} + \beta_4 X_{Smoker} + \beta_5 X_{Age^2} + \beta_6 X_{BMI^2} + \beta_7 X_{BMI^3} +\beta_8 X_{BMI}*X_{Smoker}$
+
+
+Multiple regression assumptions
+
+1. Linearity assumption:
+
+The best predicted model assumes that there is a straight-line relationship between all the predictors and the response. We expect to see the linear pattern when plotting the residuals and fitted values from the model. Using the residual plot as shown below, there are no discernible patterns detected. Therefore, this model passes the linearity assumption.
+
+```{r}
+library(ggplot2)
+ggplot(highermodel, aes(x=.fitted, y=.resid))+geom_point()+geom_smooth()+geom_hline(yintercept = 0)
+par(mfrow=c(2,2))
+plot(highermodel)
+```
+
+2. Equal variance assumption:
+
+$H_0:$ Heteroscedasticity is not present
+$H_a:$ Heteroscedasticity is present
+
+The model is also assumed to have the error terms that have a constant variance. In order to verify whether our model is homoscedastic, a scale-location between fitted value and standardized residuals as well as the studentized Breusch-Pagan test were utilized. From the plot, we can see the horizontal line with equally spread points. The output of the Breusch-Pagan (BP = 6.8338 and p-value = 0.5547) indicates that we should not reject the null hypothesis. Therefore, it suggests that the predicted model passes the assumption and is homoscedastic.
+
+```{r}
+library(lmtest)
+bptest(highermodel)
+plot(highermodel, which=3)
+```
+
+
+3. Multicollinearity test:
+
+There is a chance that independent variables are correlated with each other. To test for multicollinearity, we performed the test with the variance inflation factor (VIF). Since our model has 3 higher-order terms and 1 interaction term, the high values of VIF are more likely to happen. The diagnostic shows that the multicollinearity may be due to the variables with higher order, the categorical variable Smoker and the interaction term between BMI and Smoker. Therefore, we are safe to ignore the high VIF and conclude that there are no extreme multicollinearities detected. 
+
+```{r}
+library(mctest)
+imcdiag(highermodel, method="VIF")
+```
+
+
+4. Influential points and outliers:
+
+We used residuals and leverage plot to detect outliers and influential points. We observed no points beyond Cook’s distance, which means all of the points do not have high Cook’s distance scores. In the plot showing the Cook’s distance $D_i$ of each observation, there are no points that have a distance greater than 0.5. Therefore, they are not influential. The leverage plot shows multiple influential points that are beyond the 2p/n threshold. However, when we removed these points from the data, the adjusted R square decreased and there are no reasons to delete these points. Therefore, we kept the original data and the predicted model. 
+
+```{r}
+plot(highermodel, which=5)
+plot(highermodel, pch=18, col="red", which=c(4)) 
+lev=hatvalues(highermodel)
+p = length(coef(highermodel))
+n = nrow(insurance)
+outlier = lev[lev>(2*p/n)]
+
+plot(rownames(insurance),lev, main = "Leverage in Insurance Dataset", xlab="observation",
+    ylab = "Leverage Value")
+abline(h = 2 *p/n, lty = 1)
+
+influential <- as.numeric(names(outlier))
+data <- insurance[-influential, ]
+testmodel <- lm(charges~age+bmi+I(age^2)+I(bmi^2)+I(bmi^3)+children+factor(smoker)+bmi*factor(smoker), data = data)
+summary(testmodel)
+```
+
+5. Normality assumption:
+
+$H_0:$ The sample data are significantly normally distributed
+$H_a:$ The sample data are not significantly normally distributed
+Another assumption of multiple linear regression is that the errors between observed and predicted values should be normally distributed. Looking at the histogram of residuals and the Q-Q plot, we fail to observe the normal trend of the distribution of the residuals and the points falling close to the diagonal reference line respectively. We used the Shapiro-Wilk test to confirm the normality assumption. On the significance level $\alpha = 0.05$, the result from the test (W = 0.6393, p-value < 2.2e-16), we reject the null hypothesis. Overall, our data does not meet the normality assumption.
+
+```{r}
+par(mfrow=c(1,2))
+hist(residuals(highermodel))
+plot(highermodel, which=2)
+shapiro.test(residuals(highermodel))
+```
+
+6. Independence assumption:
+Our data for both dependent and independent variables are not observed sequentially over a period of time (time-series data). The response Y - charges is not related to time. Therefore, we do not check the model with independence assumption for this dataset. 
+
+Transformation for normality
+
+We made a transformation on Y - the response variable for nonnormality of the error terms by using a Box Cox transformation. The method determines the $\lambda$ in order to transform Y to a replacement response variable Y^(lambda) with the expectation that the regression residuals become normally distributed. The optimal transformation is $\lambda$ = 0.31818. However, after the transformation, we then run the Shapiro-Wilk normality test again where the result (W = 0.6393 and p-value < 2.2e-16) indicates that the null hypothesis is rejected. The transformed data still does not distribute normally and the model fails the normality assumption.
+
+```{r}
+library(MASS)
+bc=boxcox(highermodel,lambda=seq(-1.5,1.5))
+bestlambda=bc$x[which(bc$y==max(bc$y))]
+bestlambda
+
+bcmodel = lm((((charges^0.31818188)-1)/0.3181818)~age+
+               bmi+I(bmi^2)+I(age^2)+I(bmi^3)+
+               children+factor(smoker)+bmi*factor(smoker),
+             data =insurance)
+```
+
+## Conclusion
+
+The best fit model for our dataset is:
+
+$Y_{Charges} = \beta_0 + \beta_1 X_{Age} + \beta_2 X_{BMI} + \beta_3 X_{Children} + \beta_4 X_{Smoker} + \beta_5 X_{Age^2} + \beta_6 X_{BMI^2} + \beta_7 X_{BMI^3} +\beta_8 X_{BMI}*X_{Smoker}$
+
+This model includes the main effects that were shown to have a significant impact on insurance charges and the interaction & higher order terms that also significantly affect insurance charges. The main effects included in this model were all determined to be significant through individual t-tests, stepwise selection, and a partial F-test. Both the interaction term and the higher order terms were kept in the model based on the results of their individual t-tests, and insignificant interaction terms and higher order terms were left out of the final model.
+
+Independent Variable effects:
+
+Intercept = 27520.39: When all other variables equal zero, the predicted insurance cost would be $27,520.39.
+
+Age = -26.21: When all other predictor variables are held constant, the insurance cost decreases by $26.21 when the age of the insurance holder increases by one year.
+
+BMI = -2773.974: When all other predictor variables are held constant, insurance cost decreases by $2773.97 when BMI of the insurance holder increases by one 1 kg/m^2.
+
+Smoker (Yes) = -20476.48: When all other predictor variables are held constant, insurance cost decreases by $20,476.48 when the insurance holder is a smoker.
+
+Children = 668.2903: When all other predictor variables are held constant, insurance cost increases by $668.29 with every additional child covered by the health insurance.
+
+BMI & Smoker interaction = 1444.106: When all the other predictors are held constant and the insurance is a smoker, then the insurance cost will increase by $1444.11 when the BMI of the insurance holder increases by 1 kg/m^2.
+
+The R^2 adjusted value for the best fit model obtained is 0.8437, which indicates that 84.37% of the variation in insurance cost is explained by this model. The RMSE is 4788 on 1329 degrees of freedom, which is the lowest RMSE value obtained in all the models that were tested. The minimized RMSE value indicates that this model is the best fit to the data.
+ 
+## Discussion
+
+Our model had both expected and unexpected results. Region did not affect medical insurance costs, which isn’t surprising considering that the regional variable is very broad and only considers four regions across the United States. For the region variable to have a noticeable impact on insurance costs, it would be effective to look at costs on a state or county level. Sex was also not a significant predictor, and the presence of influential points in the data made it difficult to draw conclusions with this variable. The results of the children variable were straightforward, the more children covered by the insurance policy, the higher the insurance costs.
+
+The coefficient obtained in the model for the smoker variable was unusual, having a \$20,476 decrease in insurance costs when the beneficiary is a smoker. This result was strange because when medical costs are considered with only smoker status as a variable, medical costs were higher when the beneficiary was a smoker. BMI in the model also returned a strange result, decreasing insurance cost by \$2774 for every 1 kg/m^2 increase in BMI. Like smoker status, when medical costs are only analyzed with the BMI variable, medical costs increase as BMI increases. Age had the same effect as BMI and smoker status, having a negative effect in the model but a positive correlation when modeled on its own.
+
+An aspect of this model that could be changed is changing the children variable from a quantitative variable to a qualitative variable where children are present or absent in the beneficiary’s health insurance. This would likely yield a different result and would likely make predicting insurance costs with children more accurate. Another aspect that could be improved is working with the violation of the normality assumption. Despite transformations, the assumption was not met, and another type of modelling may be more appropriate for this dataset.
+
+References
+
+Choi, M. (2018). Medical Cost Personal Dataset: Insurance Forecast by using Linear Regression. Kaggle. https://www.kaggle.com/mirichoi0218/insurance.
+
+Schoen, C., Osborn, R., Squires, D., & Doty, M. M. (2013). Access, Affordability, And Insurance Complexity Are Often Worse In The United States Compared To Ten Other Countries. Health Affairs, 32(12), 2205-15. https://ezproxy.lib.ucalgary.ca/login?url=https://www.proquest.com/scholarly-journals/access-affordability-insurance-complexity-are/docview/1467749977/se-2?accountid=9838
+
+Riedel, L. M. (2009). Health insurance in the United States. AANA journal, 77(6), 439-444.
+
+Hoffman, C., & Paradise, J. (2008). Health insurance and access to health care in the United States. Annals of the New York Academy of Sciences, 1136(1), 149-160.
+
+
+
+
